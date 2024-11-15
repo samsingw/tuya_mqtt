@@ -17,6 +17,7 @@ from datetime import datetime, timedelta
 import logging
 from config_defaults import *
 from config import *
+from MappedDevice import MappedDevice
 
 # create logger
 logger = logging.getLogger("tuya_mqtt")
@@ -50,6 +51,7 @@ class DeviceMonitor:
         self.key = device_info["key"]
         self.name = device_info["name"]
         self.label = device_info["name"]  # + "(" + device_info['id'] + ")"
+        print(device_info)
         self.version = float(device_info["version"])
         self.device_info = device_info
         self.homie_device_id = format_homie_id(self.name)
@@ -366,11 +368,13 @@ class DeviceMonitor:
                     data_node["__properties__"].append(p)
             else:
                 append_property = True
+                print(dp)
                 p = {
                     "__topic__": format_homie_id(dp.name),
                     "__tuya_code__": dp.name,
                     "$name": dp.name,
-                    "$settable": str(dp.settable).lower(),
+                    "$settable": str(dict(dp)["settable"]).lower(),
+#                    "$settable": str(dp.settable).lower(),
                 }
                 if dp.value_type == "integer":
                     if dp.int_step < 1:
@@ -617,7 +621,7 @@ class DeviceMonitor:
         self.homie_publish_device_state("init")
         self.create_homie_device_info()
         self.homie_init_device()
-        self.hass_publish_configs()
+#        self.hass_publish_configs()
         self.homie_publish_device_info()
         self.homie_init_time = datetime.now()
 
@@ -631,20 +635,20 @@ class DeviceMonitor:
         while not self.tuya_connected:
             try:
                 logger.info("Connecting to {}...".format(self.label))
-                self.device = tinytuya.MappedDevice(
+                self.device = MappedDevice(
                     dev_id=self.id,
                     local_key=self.key,
                     persist=True,
-                    expand_bitmaps=False,
+                    # expand_bitmaps=False,
                 )
                 self.device.set_version(self.version)
                 self.status = self.device.status()
                 logger.info("Fetched status of {}...".format(self.label))
                 self.tuya_connected = True
                 logger.info("Connected to {}...".format(self.label))
-            except:
+            except Exception as e:
                 self.tuya_connected = False
-                logger.error("Cound not connect to {}".format(self.label))
+                logger.error(f"Could not connect to (self.label): {e}")
                 time.sleep(DEVICE_RECONNECT_SECONDS)
 
     def loop(self):
